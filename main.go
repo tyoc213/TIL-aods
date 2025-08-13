@@ -1,14 +1,17 @@
 package main
 
 import (
+	"fmt"
 	"encoding/json"
 	"log"
-
+	"sync/atomic"
 	maelstrom "github.com/jepsen-io/maelstrom/demo/go"
 )
 
+var id_count int64 = 0
 
 func main() {
+	//var id_count int64 = 0
     n := maelstrom.NewNode()
     n.Handle("echo", func(msg maelstrom.Message) error {
         // Unmarshal the message body as an loosely-typed map.
@@ -24,6 +27,19 @@ func main() {
         // Echo the original message back with the updated message type.
         return n.Reply(msg, body)
     })
+
+		n.Handle("generate", func(msg maelstrom.Message) error {
+			var body map[string]any
+			if err := json.Unmarshal(msg.Body, &body); err != nil {
+				return err
+			}
+
+			body["type"] = "generate_ok"
+			body["id"] =  fmt.Sprint(n.ID(), ":", atomic.AddInt64(&id_count, 1))
+
+			log.Print(body)
+			return n.Reply(msg, body)
+		})
 
 		if err := n.Run(); err != nil {
         log.Fatal(err)
